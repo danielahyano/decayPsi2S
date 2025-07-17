@@ -34,7 +34,7 @@ http://cmssw.cvs.cern.ch/cgi-bin/cmssw.cgi/UserCode/kumarv/Input/StarToHepmc.C?v
 
 using namespace std;
 
-void convert_SL2LHE(string infilename = "test.tx", string outfilename = "starlight_LHEtest", double beamE1 = 2510, double beamE2 = 2510) //makeEventsFile
+void convert_SL2LHE(string infilename = "TEST.tx", string outfilename = "starlight_LHEtest", double beamE1 = 2510, double beamE2 = 2510) //makeEventsFile
 {
 	char ofName[100];
 	sprintf(ofName,"%s.lhe", outfilename.c_str());
@@ -115,17 +115,15 @@ void convert_SL2LHE(string infilename = "test.tx", string outfilename = "starlig
 				TLorentzVector motherFourMom = fourMom1 + fourMom2;
 				double y = motherFourMom.Rapidity();
 
-				if(TMath::Abs(y)>1.45 && TMath::Abs(y)<2.45){
-					if(nAccEvts) output << "</event>" << endl;
-					output << "<event>" << endl;
+				if(nAccEvts) output << "</event>" << endl;
+				output << "<event>" << endl;
 
-					output << NTrk << " 81" << " 1.0 -1.0 -1.0 -1.0" << endl;
-					for(size_t itrk=0; itrk<px.size(); itrk++){
-						output << pdg_id[itrk] << " 1" << " 0 0 0 0 " << px[itrk] << " " << py[itrk] << " " << pz[itrk] << " " << e[itrk] << " " << mass[itrk] << " 0.0 9.0" << endl; 
-					}
-
-					nAccEvts++;
+				output << NTrk << " 81" << " 1.0 -1.0 -1.0 -1.0" << endl;
+				for(size_t itrk=0; itrk<px.size(); itrk++){
+					output << pdg_id[itrk] << " 1" << " 0 0 0 0 " << px[itrk] << " " << py[itrk] << " " << pz[itrk] << " " << e[itrk] << " " << mass[itrk] << " 0.0 9.0" << endl; 
 				}
+
+				nAccEvts++;
 			}
 			else{
 				cout<<"The first two tracks are not muons !"<<endl;

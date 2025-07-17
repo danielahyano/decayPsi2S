@@ -37,7 +37,7 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp, int nev): fNevt(nev)
 
   fPart = new TClonesArray("TParticle");
 
-  fPol = new TDecayPolarized(13, 1.);
+  fPol = new TDecayPolarized(11, 1.);
 
   fTxOut.open(Form("%s.tx", outp.c_str()));
   fEvtline = "EVENT: ";
@@ -90,6 +90,7 @@ void TGenPsi2S::EventLoop() {
   unsigned long nprint = 5e5;
   unsigned long nreject = 0;
 
+  cout << "fNevt: " << fNevt << endl;
   //input event loop
   while(true) {
 
@@ -119,7 +120,15 @@ void TGenPsi2S::EventLoop() {
       fDec->Decay(100443, &vgen);
       fDec->ImportParticles(fPart);
 
-      if( AcceptDecay() ) break;
+      //if( AcceptDecay() ) break;
+      if( AcceptDecay() ){
+        bool diMuDiPi = true; 
+        for(int i=0; i<fPart->GetEntries(); i++) {
+           TParticle *part = dynamic_cast<TParticle*>( fPart->At(i) );
+           if (part->GetPdgCode() == 22 ) diMuDiPi = false; 
+        }
+        if (diMuDiPi)break;
+      }
     }
     KeepFinalOnly();
 
@@ -131,27 +140,6 @@ void TGenPsi2S::EventLoop() {
 
     //write J/psi kinematics in output tree
     jGenTree->Fill();
-
-    /*
-    cout.precision(4);
-    cout << vgen.Pt() << " " << vgen.Rapidity() << " " << vgen.M() << endl;
-
-    //decayer loop
-    for(int i=0; i<fPart->GetEntries(); i++) {
-
-      TParticle *part = dynamic_cast<TParticle*>( fPart->At(i) );
-
-      cout << setw(3) << i << setw(7) << part->GetPdgCode() << setw(7) << fPdgDat->GetParticle(part->GetPdgCode())->GetName();
-      cout << setw(3) << part->GetFirstDaughter() << setw(3) << part->GetLastDaughter();
-      cout << setw(3) << part->GetNDaughters() << endl;
-
-    }//decayer loop
-
-    //cout << fVecPol.size() << " " << fPart->GetEntries() << endl;
-    for(vector<const TParticle*>::const_iterator it = fVecPol.cbegin(); it != fVecPol.cend(); ++it) {
-      cout << setw(5) << (*it)->GetPdgCode() << endl;
-    }
-    */
 
     iev++;
 
@@ -215,8 +203,8 @@ bool TGenPsi2S::PolarizedJpsi() {
   double eta0 = fPol->GetDecay(0)->Eta();
   double eta1 = fPol->GetDecay(1)->Eta();
 
-  if( eta0 < fEtaMin or eta0 > fEtaMax ) return false;
-  if( eta1 < fEtaMin or eta1 > fEtaMax ) return false;
+  //if( eta0 < fEtaMin or eta0 > fEtaMax ) return false;
+  //if( eta1 < fEtaMin or eta1 > fEtaMax ) return false;
 
   //decay passed the pseudorapidity interval
 
@@ -243,6 +231,8 @@ void TGenPsi2S::KeepFinalOnly() {
     }
 
     if( part->GetNDaughters() > 0 ) to_remove.push_back(i);
+
+    if (part -> GetPdgCode() == 22 || part -> GetPdgCode() == 11 || part -> GetPdgCode() == -11) to_remove.push_back(i);
   }
 
   for(vector<int>::const_iterator it = to_remove.cbegin(); it != to_remove.cend(); ++it) {
@@ -284,7 +274,7 @@ bool TGenPsi2S::AcceptParticle(int idx) {
 
   int pdg = part->GetPdgCode();
 
-  if( TMath::Abs(pdg) != 11 and TMath::Abs(pdg) != 13 ) return false;
+  if(TMath::Abs(pdg) != 11 ) return false;
 
   return true;
 

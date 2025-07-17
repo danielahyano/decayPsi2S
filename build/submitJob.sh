@@ -1,8 +1,8 @@
 #!/bin/bash
 
 workDir=$PWD
-echo $workDir
 
+echo $workDir
 mkdir -p log output
 rm -rf log/* output/*
 
