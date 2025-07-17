@@ -37,7 +37,7 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp, int nev): fNevt(nev)
 
   fPart = new TClonesArray("TParticle");
 
-  fPol = new TDecayPolarized(11, 1.);
+  fPol = new TDecayPolarized(13, 1.);
 
   fTxOut.open(Form("%s.tx", outp.c_str()));
   fEvtline = "EVENT: ";
@@ -274,7 +274,7 @@ bool TGenPsi2S::AcceptParticle(int idx) {
 
   int pdg = part->GetPdgCode();
 
-  if(TMath::Abs(pdg) != 11 ) return false;
+  if(TMath::Abs(pdg) != 13 ) return false;
 
   return true;
 

@@ -1,5 +1,9 @@
 # This package is written by Jaroslav Adam
 
+I (Daniela) have made some changes to adapt this code for use in my study of psi(2s) to dimudipi.
+I needed to change it so that it could decay also into dielectrondipi, to study contamination from that channel.
+
+
 # *** run the package using the environment setup in shuaiy's account ***
 
 cd build
