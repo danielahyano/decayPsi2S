@@ -1,6 +1,10 @@
 #ifndef TGenPsi2S_h
 #define TGenPsi2S_h
 
+#include "EvtGen/EvtGen.hh"
+#include "EvtGenBase/EvtPDL.hh"
+#include "EvtGenBase/EvtSimpleRandomEngine.hh"
+
 class TPythia8Decayer;
 class TDatabasePDG;
 class TLorentzVector;
@@ -25,7 +29,9 @@ public:
   void EventLoop();
 
 private:
-
+  
+  EvtPDL pdl;          // <-- make it a member
+  EvtGen* myGenerator; // <-- make it a member pointer if you use dynamic allocation
   bool PolarizedJpsi();
 
   void KeepFinalOnly();
@@ -36,8 +42,8 @@ private:
   bool LoadInputEvent(TLorentzVector& vgen);
   void LoadParticle(TLorentzVector& pvec, const std::string& line);
 
-  void WriteStarlight();
-  void PutTxTrack(std::ostringstream &tx, unsigned int ipart);
+  void WriteStarlight(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* pion1, EvtParticle* pion2);
+  void PutTxTrack(std::ostringstream &tx, unsigned int ipart, EvtParticle* dau);
 
   std::ifstream fInp; // input file
   unsigned long fNevt; // number of events to process
@@ -63,6 +69,8 @@ private:
   Double_t jGenPt, jGenPt2; // pT and pT^2
   Double_t jGenY; // rapidity
   Double_t jGenPhi; // azimuthal angle
+
+  int PdgToGeant3(int pdg);
 
 };//TGenPsi2S
 

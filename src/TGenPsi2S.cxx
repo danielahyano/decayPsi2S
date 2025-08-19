@@ -20,6 +20,14 @@
 #include "TDecayPolarized.h"
 #include "TGenPsi2S.h"
 
+#include "EvtGen/EvtGen.hh"
+#include "EvtGenBase/EvtRandomEngine.hh"
+#include "EvtGenBase/EvtSimpleRandomEngine.hh"
+#include "EvtGenBase/EvtParticleFactory.hh"
+#include "EvtGenBase/EvtVector4R.hh"
+#include "EvtGenBase/EvtParticle.hh"
+#include "EvtGenBase/EvtPDL.hh"
+
 using namespace std;
 using namespace boost;
 
@@ -30,6 +38,18 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp, int nev): fNevt(nev)
 
   fInp.open(inp);
 
+  // Initialize PDG table (EvtPDL)
+  // Create an instance of EvtPDL
+//  EvtPDL pdl;
+  pdl.readPDT(std::string(getenv("HOME")) + "/Tools/evtGenBuild/evt.pdl");
+
+  // Random number generator
+  EvtSimpleRandomEngine* myRandom = new EvtSimpleRandomEngine();
+
+  // Create the EvtGen instance
+  EvtGen myGenerator("../evtgenDir/DECAY.DEC", "evt.pdl", myRandom);
+  
+  
   fDec = new TPythia8Decayer();
   fDec->Init();
 
@@ -89,7 +109,9 @@ void TGenPsi2S::EventLoop() {
   unsigned long iev = 0;
   unsigned long nprint = 5e5;
   unsigned long nreject = 0;
-
+  int pdgId = 100443; // PDG for ψ(2S)
+//EvtId evtId = pdl.getId(pdgId);
+  EvtId evtId = EvtPDL::getId("psi(2S)");
   cout << "fNevt: " << fNevt << endl;
   //input event loop
   while(true) {
@@ -114,38 +136,34 @@ void TGenPsi2S::EventLoop() {
     }
 
     //decay the psi(2S)
-    while(true) {
+    EvtVector4R psi2S(vgen.E(), vgen.Px(), vgen.Py(), vgen.Pz());
+    EvtParticle* parent = EvtParticleFactory::particleFactory(evtId, psi2S);
+    myGenerator->generateDecay(parent);
 
-      fPart->Clear();
-      fDec->Decay(100443, &vgen);
-      fDec->ImportParticles(fPart);
+    //psi(2S) has three daughters, the one at indice 0 is a jpsi, and the ones at indices 1 and 2 are pions
+    EvtParticle* jpsi = parent->getDaug(0);
+    EvtParticle* pion1 = parent->getDaug(1);
+    EvtParticle* pion2 = parent->getDaug(2);
 
-      //if( AcceptDecay() ) break;
-      if( AcceptDecay() ){
-        bool diMuDiPi = true; 
-        for(int i=0; i<fPart->GetEntries(); i++) {
-           TParticle *part = dynamic_cast<TParticle*>( fPart->At(i) );
-           if (part->GetPdgCode() == 22 ) diMuDiPi = false; 
-        }
-        if (diMuDiPi)break;
-      }
-    }
-    KeepFinalOnly();
+    // need to decay the jpsi:
+    myGenerator->generateDecay(jpsi);
+    std::cout << "Daughters number: " << jpsi->getNDaug() << endl;
 
-    //polarized J/psi decay
-    if( !PolarizedJpsi() ) continue;
-
+    // now we can get the two muon daughters:
+    EvtParticle* muon1 = jpsi->getDaug(0);
+    EvtParticle* muon2 = jpsi->getDaug(1);
+    
     //write the output in .tx format
-    WriteStarlight();
+    WriteStarlight(muon1, muon2, pion1, pion2);
 
     //write J/psi kinematics in output tree
-    jGenTree->Fill();
+    //jGenTree->Fill();
 
     iev++;
 
-    if (iev != 0 and iev%nprint == 0) {
-      cout << "processed " << iev << " events" << endl;
-    }
+    //if (iev != 0 and iev%nprint == 0) {
+    //  cout << "processed " << iev << " events" << endl;
+    //}
 
   }//input event loop
 
@@ -200,8 +218,8 @@ bool TGenPsi2S::PolarizedJpsi() {
 
   //evaluate the requested pseudorapidity interval
 
-  double eta0 = fPol->GetDecay(0)->Eta();
-  double eta1 = fPol->GetDecay(1)->Eta();
+//double eta0 = fPol->GetDecay(0)->Eta();
+ // double eta1 = fPol->GetDecay(1)->Eta();
 
   //if( eta0 < fEtaMin or eta0 > fEtaMax ) return false;
   //if( eta1 < fEtaMin or eta1 > fEtaMax ) return false;
@@ -328,16 +346,21 @@ void TGenPsi2S::LoadParticle(TLorentzVector& pvec, const std::string& line) {
 }//LoadParticle
 
 //_____________________________________________________________________________
-void TGenPsi2S::WriteStarlight() {
+void TGenPsi2S::WriteStarlight(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* pion1, EvtParticle* pion2) {
 
   //write output in Starlight .tx format
 
   std::ostringstream tx;
-
-  tx << fEvtline << fNtx << " " << fVecPol.size() << " 1" << endl;
-  tx << fVtxline << fVecPol.size() << endl;
-  for(unsigned int i=0; i<fVecPol.size(); i++) PutTxTrack(tx, i);
-
+  // the first line is: EVENT: fNtx(the current index) NTracks(4) NVertices(1)
+  tx << fEvtline << fNtx << " 4 1" << endl;
+  tx << fVtxline << " 4 " << endl;
+  
+  // Now we need to write four lines for each of the products:
+  PutTxTrack(tx, 0, muon1);
+  PutTxTrack(tx, 1, muon2);
+  PutTxTrack(tx, 2, pion1);
+  PutTxTrack(tx, 3, pion2);
+  
   fTxOut << tx.str();
 
   ++fNtx;
@@ -345,19 +368,30 @@ void TGenPsi2S::WriteStarlight() {
 }//WriteStarlight
 
 //_____________________________________________________________________________
-void TGenPsi2S::PutTxTrack(ostringstream &tx, unsigned int ipart) {
-
+void TGenPsi2S::PutTxTrack(ostringstream &tx, unsigned int ipart, EvtParticle* dau) {
   //utility function for Starlight .tx format
 
-  tx << "TRACK:  " << fPdgDat->ConvertPdgToGeant3( fVecPol[ipart]->GetPdgCode() ) << " ";
-  tx << fixed << fVecPol[ipart]->Px() << " ";
-  tx << fixed << fVecPol[ipart]->Py() << " ";
-  tx << fixed << fVecPol[ipart]->Pz() << " ";
+  EvtVector4R pDau = dau->getP4Lab();
+  int dauPdg = EvtPDL::getStdHep(dau->getId());
+
+  tx << "TRACK:  " << PdgToGeant3(dauPdg) << " ";
+  tx << fixed << pDau.get(1) << " ";
+  tx << fixed << pDau.get(2) << " ";
+  tx << fixed << pDau.get(3) << " ";
   tx << fNtx << " " << ipart << " 0 ";
-  tx << fVecPol[ipart]->GetPdgCode() << endl;
+  tx << dauPdg << endl;
 
 }//put_tx_track
 
+int TGenPsi2S::PdgToGeant3(int pdg) {
+    switch (pdg) {
+        case 211: return 8;    // pi+
+        case -211: return 9;   // pi-
+        case 13: return 6;     // mu-
+        case -13: return 5;    // mu+
+        default: return 0;     // unknown
+    }
+}
 
 
 
