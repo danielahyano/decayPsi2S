@@ -108,7 +108,7 @@ void convert_SL2LHE(string infilename = "TEST.tx", string outfilename = "starlig
 		//TParticle particle(pdg_id_temp, 0, 0, 0, 0, 0, px_temp, py_temp, pz_temp, 0.0, 0.0, 0.0, 0.0, 0.0);
 		//TRACK:      6   2.9797       3.1399       84.461          1      1      0    -13
 		if(NTrk == (int)px.size()){
-			if(TMath::Abs(pdg_id[0])==13 && TMath::Abs(pdg_id[1])==13){
+			//if(TMath::Abs(pdg_id[0])==13 && TMath::Abs(pdg_id[1])==13){
 				TLorentzVector fourMom1(px[0], py[0], pz[0], e[0]);
 				TLorentzVector fourMom2(px[1], py[1], pz[1], e[1]);
 
@@ -124,10 +124,10 @@ void convert_SL2LHE(string infilename = "TEST.tx", string outfilename = "starlig
 				}
 
 				nAccEvts++;
-			}
-			else{
-				cout<<"The first two tracks are not muons !"<<endl;
-			}
+			//}
+			//else{
+			//	cout<<"The first two tracks are not muons !"<<endl;
+			//}
 		}
 
 	} // reading loop of the input file
