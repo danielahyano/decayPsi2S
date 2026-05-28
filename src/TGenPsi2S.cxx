@@ -33,7 +33,7 @@ using namespace std;
 using namespace boost;
 
 //_____________________________________________________________________________
-TGenPsi2S::TGenPsi2S(const string& inp, const string& outp, int nev): fNevt(nev), fNtx(1),
+TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFile, int nev): fNevt(nev), fNtx(1),
   fUseEta(false), fEtaMin(0), fEtaMax(0), jGenPt(0), jGenPt2(0),
   jGenY(0), jGenPhi(0) {
 
@@ -42,13 +42,13 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp, int nev): fNevt(nev)
   // Initialize PDG table (EvtPDL)
   // Create an instance of EvtPDL
 //  EvtPDL pdl;
-  pdl.readPDT(std::string(getenv("HOME")) + "/Tools/evtGenBuild/evt.pdl");
-
+ // pdl.readPDT(std::string(getenv("HOME")) + "/Tools/evtGenBuild/evt.pdl");
+  pdl.readPDT(std::string("evt.pdl"));
   // Random number generator
   EvtSimpleRandomEngine* myRandom = new EvtSimpleRandomEngine();
 
   // Create the EvtGen instance
-  EvtGen myGenerator("../evtgenDir/DECAYMU.DEC", "evt.pdl", myRandom);
+  EvtGen myGenerator(decayFile.c_str(),"", myRandom);
 
   fPdgDat = TDatabasePDG::Instance();
 
@@ -100,6 +100,14 @@ void TGenPsi2S::EventLoop() {
   unsigned long nreject = 0;
   int pdgId = 100443; // PDG for ψ(2S)
   EvtId evtId = EvtPDL::getId("psi(2S)");
+  std::string dummy;
+  for(int i = 0; i < 3; ++i) {
+      if(!std::getline(fInp, dummy)) {
+          cout << "Error: Could not read STARlight header lines!" << endl;
+          return;
+      }
+      cout << "Skipping header line " << i+1 << ": " << dummy << endl;
+  }
   //input event loop
   while(true) {
 
@@ -134,23 +142,33 @@ void TGenPsi2S::EventLoop() {
     rho.set(2,2, 0.5);  // -1
     parent->setSpinDensityForward(rho); // or the equivalent setter in your version
     myGenerator->generateDecay(parent);
-
-    //psi(2S) has three daughters, the one at indice 0 is a jpsi, and the ones at indices 1 and 2 are pions
-    EvtParticle* jpsi = parent->getDaug(0);
-    EvtParticle* pion1 = parent->getDaug(1);
-    EvtParticle* pion2 = parent->getDaug(2);
-    // can check the polarization:
-    // EvtSpinDensity rhoJpsi = jpsi->getSpinDensityForward();
-    // std::cout << "Spin density matrix = \n" << rhoJpsi << std::endl;
-    // need to decay the jpsi:
-    myGenerator->generateDecay(jpsi);
-
-    // now we can get the two muon daughters:
-    EvtParticle* muon1 = jpsi->getDaug(0);
-    EvtParticle* muon2 = jpsi->getDaug(1);
     
-    //write the output in .tx format
-    WriteStarlight(muon1, muon2, pion1, pion2);
+    //psi(2S) has either three daughters, the one at indice 0 is a jpsi, and the ones at indices 1 and 2 are pions
+    //psi(2S) might have two daughters, in case of psi2s to jpsi+eta
+    int nd = parent->getNDaug();
+    if (nd == 3) {
+       // psi(2S) -> J/psi + h1 + h2 (e.g. pi+ pi-, pi0 pi0)
+       EvtParticle* h1   = parent->getDaug(1);
+       EvtParticle* h2   = parent->getDaug(2);
+       EvtParticle* jpsi = parent->getDaug(0);
+       myGenerator->generateDecay(jpsi);
+       // now we can get the two muon daughters:
+       EvtParticle* muon1 = jpsi->getDaug(0);
+       EvtParticle* muon2 = jpsi->getDaug(1);
+       WriteStarlight4dau(muon1, muon2, h1, h2);
+    } else if (nd == 2) {
+       // psi(2S) -> J/psi + X   (e.g. eta, pi0)
+       EvtParticle* X    = parent->getDaug(1);
+       EvtParticle* jpsi = parent->getDaug(0);
+       myGenerator->generateDecay(jpsi);
+       // now we can get the two muon daughters:
+       EvtParticle* muon1 = jpsi->getDaug(0);
+       EvtParticle* muon2 = jpsi->getDaug(1);
+       WriteStarlight3dau(muon1, muon2, X);
+    } else {
+       std::cerr << "Unexpected number of daughters for psi(2S): "
+              << nd << std::endl;
+    }
 
     iev++;
 
@@ -213,7 +231,7 @@ void TGenPsi2S::LoadParticle(TLorentzVector& pvec, const std::string& line) {
 }//LoadParticle
 
 //_____________________________________________________________________________
-void TGenPsi2S::WriteStarlight(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* pion1, EvtParticle* pion2) {
+void TGenPsi2S::WriteStarlight4dau(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* h1, EvtParticle* h2) {
 
   //write output in Starlight .tx format
 
@@ -225,14 +243,35 @@ void TGenPsi2S::WriteStarlight(EvtParticle* muon1, EvtParticle* muon2, EvtPartic
   // Now we need to write four lines for each of the products:
   PutTxTrack(tx, 0, muon1);
   PutTxTrack(tx, 1, muon2);
-  PutTxTrack(tx, 2, pion1);
-  PutTxTrack(tx, 3, pion2);
+  PutTxTrack(tx, 2, h1);
+  PutTxTrack(tx, 3, h2);
   
   fTxOut << tx.str();
 
   ++fNtx;
 
 }//WriteStarlight
+
+//_____________________________________________________________________________
+void TGenPsi2S::WriteStarlight3dau(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* h1) {
+
+  //write output in Starlight .tx format
+
+  std::ostringstream tx;
+  // the first line is: EVENT: fNtx(the current index) NTracks(4) NVertices(1)
+  tx << fEvtline << fNtx << " 3 1" << endl;
+  tx << fVtxline << " 3 " << endl;
+
+  // Now we need to write four lines for each of the products:
+  PutTxTrack(tx, 0, muon1);
+  PutTxTrack(tx, 1, muon2);
+  PutTxTrack(tx, 2, h1);
+
+  fTxOut << tx.str();
+
+  ++fNtx;
+
+}//WriteStarlightETA
 
 //_____________________________________________________________________________
 void TGenPsi2S::PutTxTrack(ostringstream &tx, unsigned int ipart, EvtParticle* dau) {

@@ -11,7 +11,7 @@ using namespace std;
 int main(int argc, char* argv[]) {
 
 	std::string inFile, outFile;
-
+	string decayFile = "DECAYMU.DEC";
 	if(argc==1){
 		inFile = "/afs/cern.ch/user/d/dyano/private/STARlight/starlightTrunk_v313/build/slightPsi2sDiE.out";
 		// inFile = "/afs/cern.ch/user/s/shuaiy/public/starlight/decayPsi2S/testFiles/slight_CohPsi2S_4Feeddown_0001.out";
@@ -21,12 +21,18 @@ int main(int argc, char* argv[]) {
 		inFile  = std::string(argv[1]);
 		outFile = std::string(argv[2]);
 	}
+	else if(argc==4){
+   		 // Custom decay card: ./fdgen inFile outFile decayCard.DEC 0
+    		inFile    = std::string(argv[1]);
+    		outFile   = std::string(argv[2]);
+    		decayFile = std::string(argv[3]);
+	}
 	else{
-		cout<<"arge should be equal to 1 or 3 !"<<endl;
+		cout<<"argc should be 1, 3, or 4 (with custom decay card)!"<<endl;
 		return -1;
 	}
 
-	TGenPsi2S *gen = new TGenPsi2S(inFile, outFile, 0);
+	TGenPsi2S *gen = new TGenPsi2S(inFile, outFile, decayFile, 0);
 
 	//gen->SetEtaRange(-2.5, 2.5);
 
@@ -34,10 +40,6 @@ int main(int argc, char* argv[]) {
 
 	delete gen;
 
-	//TGenPsi2S gen("/afs/cern.ch/user/s/shuaiy/public/starlight/decayPsi2S/testFiles/slight_CohPsi2S_4Feeddown_0001.out", "test", 0);
-	//gen.SetEtaRange(-1.2, 1.2);
-	//gen.EventLoop();
-	
 	return 0;
 
 }//main

@@ -22,7 +22,7 @@ class TGenPsi2S {
 
 public:
 
-  TGenPsi2S(const std::string& inp, const std::string& outp, int nev);
+  TGenPsi2S(const std::string& inp, const std::string& outp,const std::string& decayFile, int nev);
   ~TGenPsi2S();
 
   void SetEtaRange(double etamin, double etamax);
@@ -42,7 +42,8 @@ private:
   bool LoadInputEvent(TLorentzVector& vgen);
   void LoadParticle(TLorentzVector& pvec, const std::string& line);
 
-  void WriteStarlight(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* pion1, EvtParticle* pion2);
+  void WriteStarlight4dau(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* h1, EvtParticle* h2);
+  void WriteStarlight3dau(EvtParticle* muon1, EvtParticle* muon2, EvtParticle* h1);
   void PutTxTrack(std::ostringstream &tx, unsigned int ipart, EvtParticle* dau);
 
   std::ifstream fInp; // input file

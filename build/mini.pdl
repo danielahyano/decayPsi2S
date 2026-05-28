@@ -1,0 +1,2 @@
+* Particle definitions for Psi(2S) analysis
+add  p Particle  psi(2S)                       100443  3.6860970e+00  2.9400000e-04  8.0000000e-04     0     2  0.0000000e+00     100443

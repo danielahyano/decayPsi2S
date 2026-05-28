@@ -1,0 +1,13 @@
+# user.dec — force psi(2S) → J/psi π+ π−, and let EvtGen decay J/psi however it wants
+# You will remove J/psi daughters later anyway in KeepFinalOnly() for your polarized re-decay.
+
+Decay psi(2S)
+  1.000  J/psi  pi+  pi-   VVPIPI;
+Enddecay
+
+Decay J/psi
+  1.0  e+  e-  VLL;
+Enddecay
+
+End
+
