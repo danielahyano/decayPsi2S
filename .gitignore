@@ -15,3 +15,16 @@ build/*.tx
 build/*.lhe
 build/*_C*
 build/submitJob.con
+build/CMakeFiles/
+build/CMakeCache.txt
+build/Makefile
+build/cmake_install.cmake
+*.out
+*.lhe
+*.tx
+*.root
+*.tar.gz
+*.so
+*.d
+*.pcm
+EOF
