@@ -1,53 +1,107 @@
-# This package is written by Jaroslav Adam
+# decayPsi2S
 
-I (Daniela) have made some changes to adapt this code for use in my study of psi(2s) to dimudipi.
-I needed to change it so that it could decay also into dielectrondipi, to study contamination from that channel.
+Originally written by Jaroslav Adam.
 
+Modified by Daniela Yano to study psi(2S) → μμππ, and extended to also support 
+psi(2S) → eeππ to evaluate contamination from the dielectron channel.
 
-# *** run the package using the environment setup in shuaiy's account ***
+---
 
-cd build
+## Environment setup (CMSSW-based, no manual library installation needed)
 
-source sourceCode.sh  # setup environment and compile code
+All dependencies (ROOT 6.26, EvtGen 2.0, HepMC3 3.2.5, Pythia8 309) are provided
+automatically by CMSSW_13_2_11 via cvmfs.
 
-./fdgen  # test run for an embedded file
+```bash
+# Set up CMSSW environment (once per session)
+cd /path/to/CMSSW_13_2_11/src
+cmsenv
 
-./submitJob.sh  # submit job to CERN batch farm using condor  
+# Go to the build directory
+cd /path/to/decayPsi2S/build
 
-root -l -b -q convert_SL2LHE.C+  # convert generated STARlight-style test.tx to LHE file
+# Compile the code
+source sourceCode.sh
+```
 
-./convertLHE.sh  # batch conversion of generated STARlight-style output (.tx) to LHE files
+---
 
+## Running fdgen
 
-# ****** instructions below are used to setup your own environment ******
+`fdgen` reads a STARlight output file (.out), decays the psi(2S) using EvtGen,
+and writes a STARlight-style output file (.tx) and a ROOT tree (.root).
 
-# To enable support for Pythia8, one needs to install Pythia8 following the instruction in http://home.thep.lu.se/Pythia/
-# Put Pythia package in, e.g., $HOME/Tools ($HOME=/afs/cern.ch/user/s/shuaiy)
-cd $HOME/Tools/pythia8303
-./configure
-make
+### Usage
 
-# To correctly compiling run the pythia8.C in $ROOTSYS/tutorials/pythia,
-# one needs to add the following line in your own rootlogon.C
-gSystem->AddIncludePath("-I$HOME/Tools/pythia8303/include");
+```bash
+# Mode 1: test run using hardcoded input file (for quick check)
+./fdgen
 
-# Build root in LXPLUS using compilation
-cd $HOME/Tools
-git clone --branch v6-22-00-patches https://github.com/root-project/root.git root_source
+# Mode 2: specify input and output
+./fdgen  
 
-mkdir root_build   # temporarily store build files
-mkdir $HOME/Tools/root_6.22 # install directory
+# Mode 3: specify input, output, and a custom decay card
+./fdgen   
+```
 
-# Now build ROOT (ref. https://root.cern.ch/building-root)
-cd root_build
+The default decay card is `DECAYMU.DEC` (psi(2S) → μμππ).
+Use `DECAYEL.DEC` for psi(2S) → eeππ.
 
-# Define the variable PYTHIA8_DIR for cmake of root to find pythia8
-export PYTHIA8_DIR="$HOME/Tools/pythia8303"
-cmake3 -DCMAKE_INSTALL_PREFIX=$HOME/Tools/root_6.22 ../root_source
+### Examples
 
-# Build root
-cmake3 --build . --target install -- -j8 >& buildLog& # here, 8 is the number of available cores.
+```bash
+# Decay coherent psi(2S) → dimuon+dipion using the provided test file (10 events)
+./fdgen slight.out test_mumu DECAYMU.DEC
 
-# To use the compiled root in LXPLUS
-source $HOME/Tools/root_6.22/bin/thisroot.sh
-export LD_LIBRARY_PATH="$HOME/Tools/pythia8303/lib:$LD_LIBRARY_PATH"
+# Decay coherent psi(2S) → dielectron+dipion
+./fdgen slight.out test_elel DECAYEL.DEC
+
+# Use your own STARlight output
+./fdgen /path/to/mySlightRun.out my_output DECAYMU.DEC
+```
+
+Output files produced:
+- `<outFile>.tx`   — STARlight-style decayed output
+- `<outFile>.root` — ROOT tree with decay kinematics
+
+The provided `slight.out` in the `build/` directory contains 10 coherent 
+psi(2S) → μ⁺μ⁻ events from STARlight, for testing purposes.
+
+---
+
+## Converting output to LHE format
+
+```bash
+# Convert a single file
+root -l -b -q convert_SL2LHE.C+
+
+# Batch conversion
+./convertLHE.sh
+```
+
+---
+
+## Submitting jobs to CERN batch farm (Condor)
+
+```bash
+./submitJob.sh
+```
+
+---
+
+## Notes
+
+- `TPythia8Decayer.h` is not included in ROOT 6.26+, so a copy from ROOT 6.22
+  is kept locally in `include/TPythia8Decayer.h` for compilation.
+- This setup is compatible with CRAB job submission, as all library paths
+  are resolved dynamically via `cmsenv` and `scram`.
+- Large STARlight `.out` files should not be committed to the repository.
+  Only the small test file (`build/slight.out`, 10 events) is tracked.
+
+---
+
+## Old manual setup (no longer needed, kept for reference)
+
+The original setup required manually compiling ROOT 6.22 and Pythia8 in 
+your personal AFS space. This is no longer necessary with the CMSSW-based
+setup above. See git history for the old instructions.
