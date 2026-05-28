@@ -13,8 +13,7 @@ int main(int argc, char* argv[]) {
 	std::string inFile, outFile;
 	string decayFile = "DECAYMU.DEC";
 	if(argc==1){
-		inFile = "/afs/cern.ch/user/d/dyano/private/STARlight/starlightTrunk_v313/build/slightPsi2sDiE.out";
-		// inFile = "/afs/cern.ch/user/s/shuaiy/public/starlight/decayPsi2S/testFiles/slight_CohPsi2S_4Feeddown_0001.out";
+		inFile = "slight.out";
 		outFile = "test";
 	}
 	else if(argc==3){
