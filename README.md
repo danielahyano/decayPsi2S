@@ -2,8 +2,10 @@
 
 Originally written by Jaroslav Adam.
 
-Modified by Daniela Yano to study psi(2S) → μμππ, and extended to also support 
-psi(2S) → eeππ to evaluate contamination from the dielectron channel.
+Modified by Daniela Yano to study psi(2S). This was necessary because the STARLIGHT only has the psi(2S) decays to mu+mu- and e+e- channel. 
+Therefore, this code uses an input generated from STARLIGHT to use the kinematics (will be an .out file). Then it can decay to a specified channel using evtgen, see cards DECAYMU.DEC and DECAYEL.DEC for example. Feel free to modify that to have the psi(2S) to decay to different channels (the one here is decaying 64% of the time to Jpsi + pion plus + pion minus, and 36% of the time to Jpsi + pion0 + pion0, and then the Jpsi decays to dimuon (on DECAYMU.DEC) and to dielectron (on DECAYEL.DEC). 
+
+See below for instructions, and if you have any problems running it feel free to contact me. 
 
 ---
 
