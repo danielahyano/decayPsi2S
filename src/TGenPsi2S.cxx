@@ -1,4 +1,3 @@
-
 //c++ headers
 #include <string>
 #include <iostream>
@@ -19,7 +18,7 @@
 //local headers
 #include "TDecayPolarized.h"
 #include "TGenPsi2S.h"
-
+#include "EvtGenBase/EvtVectorParticle.hh"
 #include "EvtGen/EvtGen.hh"
 #include "EvtGenBase/EvtRandomEngine.hh"
 #include "EvtGenBase/EvtSimpleRandomEngine.hh"
@@ -29,8 +28,54 @@
 #include "EvtGenBase/EvtPDL.hh"
 #include "EvtGenBase/EvtSpinDensity.hh"
 #include "EvtGenBase/EvtSpinType.hh"
+#include "EvtGenBase/EvtVector4C.hh"
 using namespace std;
 using namespace boost;
+
+#include <cmath>
+
+EvtParticle* makeMomentumAlignedVectorParticle(
+    EvtId id,
+    const EvtVector4R& p4,
+    const EvtSpinDensity& rho)
+{
+    double px = p4.get(1), py = p4.get(2), pz = p4.get(3);
+    double pmag = std::sqrt(px*px + py*py + pz*pz);
+
+    double zx, zy, zz;
+    if (pmag > 1e-12) {
+        zx = px / pmag;
+        zy = py / pmag;
+        zz = pz / pmag;
+    } else {
+        zx = 0.0; zy = 0.0; zz = 1.0;
+    }
+
+    double ax, ay, az;
+    if (std::fabs(zx) < 0.9) { ax = 1.0; ay = 0.0; az = 0.0; }
+    else                     { ax = 0.0; ay = 1.0; az = 0.0; }
+
+    double adotz = ax*zx + ay*zy + az*zz;
+    double xx = ax - adotz*zx;
+    double xy = ay - adotz*zy;
+    double xz = az - adotz*zz;
+    double xmag = std::sqrt(xx*xx + xy*xy + xz*xz);
+    xx /= xmag; xy /= xmag; xz /= xmag;
+
+    double yx = zy*xz - zz*xy;
+    double yy = zz*xx - zx*xz;
+    double yz = zx*xy - zy*xx;
+
+    EvtVector4C epsX(0.0, xx, xy, xz);
+    EvtVector4C epsY(0.0, yx, yy, yz);
+    EvtVector4C epsZ(0.0, zx, zy, zz);
+
+    EvtVectorParticle* myPart = new EvtVectorParticle;
+    myPart->init(id, p4, epsX, epsY, epsZ);
+    myPart->setSpinDensityForward(rho);
+
+    return myPart;
+}
 
 //_____________________________________________________________________________
 TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFile, int nev): fNevt(nev), fNtx(1),
@@ -48,7 +93,7 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFi
   EvtSimpleRandomEngine* myRandom = new EvtSimpleRandomEngine();
 
   // Create the EvtGen instance
-  EvtGen myGenerator(decayFile.c_str(),"", myRandom);
+  myGenerator = new EvtGen(decayFile.c_str(), "", myRandom); 
 
   fPdgDat = TDatabasePDG::Instance();
 
@@ -132,17 +177,25 @@ void TGenPsi2S::EventLoop() {
 
     //decay the psi(2S)
     EvtVector4R psi2S(vgen.E(), vgen.Px(), vgen.Py(), vgen.Pz());
-    EvtParticle* parent = EvtParticleFactory::particleFactory(evtId, psi2S);
     
-    // set polatization:
+    // Transverse polarization. NOTE on the basis: setSpinDensityForward()
+    // interprets rho in the particle's own eps basis. With
+    // makeMomentumAlignedVectorParticle the eps slots are CARTESIAN
+    // directions (0 = x', 1 = y', 2 = z' = p-hat), NOT helicity states.
+    // Transverse = m = +/-1 about z', and summing those projectors gives
+    // 0.5|x'><x'| + 0.5|y'><y'| (imaginary cross terms cancel), with the
+    // longitudinal z' slot EMPTY. The old diag(0.5, 0, 0.5) instead put
+    // half the weight on z' (longitudinal!) -> a 50/50 transverse-linear +
+    // longitudinal mix, giving lambda ~ -1/3 in the muon cosTheta* fit.
     EvtSpinDensity rho;
     rho.setDim(3);
-    rho.set(0,0, 0.5);  // +1
-    rho.set(1,1, 0.0);  //  0
-    rho.set(2,2, 0.5);  // -1
-    parent->setSpinDensityForward(rho); // or the equivalent setter in your version
+    rho.set(0,0, 0.5);  // x' (transverse plane)
+    rho.set(1,1, 0.5);  // y' (transverse plane)
+    rho.set(2,2, 0.0);  // z' = p-hat (longitudinal, empty)
+    EvtParticle* parent = makeMomentumAlignedVectorParticle(evtId, psi2S, rho);
     myGenerator->generateDecay(parent);
-    
+    EvtSpinDensity check = parent->getSpinDensityForward();
+    //std::cout << "rho after set: " << check << std::endl;
     //psi(2S) has either three daughters, the one at indice 0 is a jpsi, and the ones at indices 1 and 2 are pions
     //psi(2S) might have two daughters, in case of psi2s to jpsi+eta
     int nd = parent->getNDaug();
@@ -151,7 +204,12 @@ void TGenPsi2S::EventLoop() {
        EvtParticle* h1   = parent->getDaug(1);
        EvtParticle* h2   = parent->getDaug(2);
        EvtParticle* jpsi = parent->getDaug(0);
-       myGenerator->generateDecay(jpsi);
+
+       // generateDecay(parent) decays recursively (the .dec defines
+       // J/psi -> mu mu), so the J/psi normally arrives here already
+       // decayed, with muons drawn against its inherited spin density.
+       // Only decay it ourselves if the recursion did not.
+       if (jpsi->getNDaug() == 0) myGenerator->generateDecay(jpsi);
        // now we can get the two muon daughters:
        EvtParticle* muon1 = jpsi->getDaug(0);
        EvtParticle* muon2 = jpsi->getDaug(1);
@@ -160,7 +218,7 @@ void TGenPsi2S::EventLoop() {
        // psi(2S) -> J/psi + X   (e.g. eta, pi0)
        EvtParticle* X    = parent->getDaug(1);
        EvtParticle* jpsi = parent->getDaug(0);
-       myGenerator->generateDecay(jpsi);
+       if (jpsi->getNDaug() == 0) myGenerator->generateDecay(jpsi);
        // now we can get the two muon daughters:
        EvtParticle* muon1 = jpsi->getDaug(0);
        EvtParticle* muon2 = jpsi->getDaug(1);
@@ -300,21 +358,3 @@ int TGenPsi2S::PdgToGeant3(int pdg) {
         default: return 0;     // unknown
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
