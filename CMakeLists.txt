@@ -1,20 +1,15 @@
 cmake_minimum_required(VERSION 3.12)
 project(jgen)
 
-# Generator sources
 set(SRCS
   src/TDecayPolarized.cxx
   src/TGenUPCJpsiFlat.cxx
   src/TGenPsi2S.cxx
 )
 
-# Binary generator executables
 set(BIN boxgen fdgen)
-
-# Generator library
 set(LIB libgen)
 
-# C++ flags
 set(CMAKE_CXX_FLAGS "-Wall -g")
 
 # --- ROOT ---
@@ -27,8 +22,17 @@ string(REPLACE "\n" "" ROOT_INCDIR "${ROOT_INCDIR_CMD}")
 
 execute_process(COMMAND root-config --libdir OUTPUT_VARIABLE ROOT_LIBDIR_CMD)
 string(REPLACE "\n" "" ROOT_LIBDIR "${ROOT_LIBDIR_CMD}")
-link_directories(${ROOT_LIBDIR})
-set(ROOT_DEPS Core EG Hist Physics RIO Tree MathCore)
+
+# Build full ROOT library paths
+set(ROOT_LIBS_FULL
+    ${ROOT_LIBDIR}/libCore.so
+    ${ROOT_LIBDIR}/libEG.so
+    ${ROOT_LIBDIR}/libHist.so
+    ${ROOT_LIBDIR}/libPhysics.so
+    ${ROOT_LIBDIR}/libRIO.so
+    ${ROOT_LIBDIR}/libTree.so
+    ${ROOT_LIBDIR}/libMathCore.so
+)
 
 # --- EvtGen, HepMC3, Pythia8 from CMSSW environment ---
 set(EVTGEN_DIR $ENV{EVTGEN})
@@ -36,6 +40,7 @@ set(HEPMC_DIR $ENV{HEPMC})
 set(PYTHIA8_DIR $ENV{PYTHIA8})
 
 link_directories(
+  ${ROOT_LIBDIR}
   ${EVTGEN_DIR}/lib
   ${HEPMC_DIR}/lib64
   ${PYTHIA8_DIR}/lib
@@ -50,15 +55,16 @@ target_include_directories(${LIB} PUBLIC
     ${HEPMC_DIR}/include
     ${PYTHIA8_DIR}/include
 )
+
 target_link_libraries(${LIB}
+    ${ROOT_LIBS_FULL}
     ${EVTGEN_DIR}/lib/libEvtGen.so
     ${HEPMC_DIR}/lib64/libHepMC3.so
     ${PYTHIA8_DIR}/lib/libpythia8.so
-    ${ROOT_DEPS}
 )
 
 # --- Build executables ---
 foreach(IBIN ${BIN})
   add_executable(${IBIN} src/${IBIN}.cxx)
-  target_link_libraries(${IBIN} ${LIB})
+  target_link_libraries(${IBIN} ${LIB} ${ROOT_LIBS_FULL})
 endforeach()

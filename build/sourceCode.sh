@@ -49,12 +49,14 @@ export CXX=$(which g++)
 export EVTGEN=$(scram tool tag evtgen EVTGEN_BASE)
 export HEPMC=$(scram tool tag hepmc3 HEPMC3_BASE)
 export PYTHIA8=$(scram tool tag pythia8 PYTHIA8_BASE)
-
+export PATH=$(root-config --bindir):$PATH
 export LD_LIBRARY_PATH=$EVTGEN/lib:$HEPMC/lib:$PYTHIA8/lib:$LD_LIBRARY_PATH
 
 cd $SCRIPT_DIR
 
 cmake3 ../ \
+  -DCMAKE_C_COMPILER=$(which gcc) \
+  -DCMAKE_CXX_COMPILER=$(which g++) \
   -DEVTGEN_ROOT_DIR=$EVTGEN \
   -DHEPMC3_ROOT_DIR=$HEPMC \
   -DPYTHIA8_ROOT_DIR=$PYTHIA8
