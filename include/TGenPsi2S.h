@@ -22,7 +22,11 @@ class TGenPsi2S {
 
 public:
 
-  TGenPsi2S(const std::string& inp, const std::string& outp,const std::string& decayFile, int nev);
+  // seed: EvtGen random seed (use the job seed so every job gets different decays)
+  // polAxis: 0 = transverse w.r.t. the beam (lab z)  [default, s-channel helicity conservation]
+  //          1 = transverse w.r.t. the psi(2S) lab momentum (helicity frame)
+  TGenPsi2S(const std::string& inp, const std::string& outp, const std::string& decayFile,
+            int nev, unsigned int seed = 1, int polAxis = 0);
   ~TGenPsi2S();
 
   void SetEtaRange(double etamin, double etamax);
@@ -57,7 +61,9 @@ private:
   TDatabasePDG *fPdgDat; // PDG database
   TPythia8Decayer *fDec; // Pythia8 decayer
   TClonesArray *fPart; // clones array for decay products
-  TDecayPolarized *fPol; // polarized J/psi decayer
+  TDecayPolarized *fPol = nullptr; // polarized J/psi decayer (unused, must be initialised: it is deleted in the destructor)
+  EvtRandomEngine *fRandom = nullptr; // EvtGen random engine
+  int fPolAxis = 0; // see constructor
 
   std::vector<const TParticle*> fVecPol; // all psi(2S) decay products with J/psi polarized decay
 

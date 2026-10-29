@@ -14,6 +14,7 @@
 #include "TMath.h"
 #include "TFile.h"
 #include "TTree.h"
+#include "TRandom3.h"
 
 //local headers
 #include "TDecayPolarized.h"
@@ -33,6 +34,17 @@ using namespace std;
 using namespace boost;
 
 #include <cmath>
+
+// EvtGen random engine backed by TRandom3, so it can be seeded per job.
+// (The default-constructed EvtSimpleRandomEngine always starts from the same
+//  seed, so every job produced the identical sequence of decays.)
+class EvtTRandom3Engine : public EvtRandomEngine {
+ public:
+  explicit EvtTRandom3Engine(unsigned int seed) : fRnd(seed) {}
+  double random() override { return fRnd.Rndm(); }
+ private:
+  TRandom3 fRnd;
+};
 
 EvtParticle* makeMomentumAlignedVectorParticle(
     EvtId id,
@@ -78,7 +90,8 @@ EvtParticle* makeMomentumAlignedVectorParticle(
 }
 
 //_____________________________________________________________________________
-TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFile, int nev): fNevt(nev), fNtx(1),
+TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFile, int nev,
+                     unsigned int seed, int polAxis): fNevt(nev), fNtx(1), fPolAxis(polAxis),
   fUseEta(false), fEtaMin(0), fEtaMax(0), jGenPt(0), jGenPt2(0),
   jGenY(0), jGenPhi(0) {
 
@@ -90,10 +103,12 @@ TGenPsi2S::TGenPsi2S(const string& inp, const string& outp,const string& decayFi
  // pdl.readPDT(std::string(getenv("HOME")) + "/Tools/evtGenBuild/evt.pdl");
   pdl.readPDT(std::string("evt.pdl"));
   // Random number generator
-  EvtSimpleRandomEngine* myRandom = new EvtSimpleRandomEngine();
+  fRandom = new EvtTRandom3Engine(seed);
+  cout << "TGenPsi2S: EvtGen seed = " << seed
+       << ", polarization axis = " << (fPolAxis == 0 ? "beam (lab z)" : "psi(2S) momentum (helicity)") << endl;
 
   // Create the EvtGen instance
-  myGenerator = new EvtGen(decayFile.c_str(), "", myRandom); 
+  myGenerator = new EvtGen(decayFile.c_str(), "", fRandom); 
 
   fPdgDat = TDatabasePDG::Instance();
 
@@ -121,7 +136,6 @@ TGenPsi2S::~TGenPsi2S() {
   fPart->Clear();
   delete fPart;
 
-  delete fPol;
 
 };//~TGenPsi2S
 
@@ -187,12 +201,27 @@ void TGenPsi2S::EventLoop() {
     // longitudinal z' slot EMPTY. The old diag(0.5, 0, 0.5) instead put
     // half the weight on z' (longitudinal!) -> a 50/50 transverse-linear +
     // longitudinal mix, giving lambda ~ -1/3 in the muon cosTheta* fit.
+    // Transverse polarization, lambda_theta = +1: rho = diag(1/2, 1/2, 0) in the
+    // particle's CARTESIAN eps basis (x, y, quantization axis). Gives
+    // W(theta) ~ 1 + cos^2(theta) about the quantization axis.
+    //  fPolAxis == 0: eps basis = lab x, y, z (EvtVectorParticle::init(id, p4)),
+    //                 i.e. quantization axis = beam. Expected for coherent
+    //                 photoproduction (SCHC); well defined at all rapidities.
+    //  fPolAxis == 1: quantization axis = psi(2S) lab momentum (helicity frame).
+    //                 Same as the beam axis at forward |y|, but ill defined near
+    //                 y = 0 where the psi(2S) momentum is (small and) transverse.
     EvtSpinDensity rho;
     rho.setDim(3);
-    rho.set(0,0, 0.5);  // x' (transverse plane)
-    rho.set(1,1, 0.5);  // y' (transverse plane)
-    rho.set(2,2, 0.0);  // z' = p-hat (longitudinal, empty)
-    EvtParticle* parent = makeMomentumAlignedVectorParticle(evtId, psi2S, rho);
+    rho.set(0,0, 0.5);
+    rho.set(1,1, 0.5);
+    rho.set(2,2, 0.0);
+    EvtParticle* parent = nullptr;
+    if (fPolAxis == 1) {
+      parent = makeMomentumAlignedVectorParticle(evtId, psi2S, rho);
+    } else {
+      parent = EvtParticleFactory::particleFactory(evtId, psi2S); // Cartesian lab basis
+      parent->setSpinDensityForward(rho);
+    }
     myGenerator->generateDecay(parent);
     EvtSpinDensity check = parent->getSpinDensityForward();
     //std::cout << "rho after set: " << check << std::endl;
@@ -228,6 +257,7 @@ void TGenPsi2S::EventLoop() {
               << nd << std::endl;
     }
 
+    parent->deleteTree(); // free the decay tree (was leaking one tree per event)
     iev++;
 
   }//input event loop

@@ -34,12 +34,16 @@ set(ROOT_DEPS Core EG Hist Physics RIO Tree MathCore)
 set(EVTGEN_DIR $ENV{EVTGEN})
 set(HEPMC_DIR $ENV{HEPMC})
 set(PYTHIA8_DIR $ENV{PYTHIA8})
+# Hard-wire the library locations into liblibgen.so and fdgen
+set(CMAKE_BUILD_RPATH ${ROOT_LIBDIR} ${EVTGEN_DIR}/lib ${HEPMC_DIR}/lib64 ${PYTHIA8_DIR}/lib)
+add_link_options(-Wl,--disable-new-dtags)   # RPATH (wins over LD_LIBRARY_PATH), not RUNPATH
 
 link_directories(
   ${EVTGEN_DIR}/lib
   ${HEPMC_DIR}/lib64
   ${PYTHIA8_DIR}/lib
 )
+
 
 # --- Compile and link generator library ---
 add_library(${LIB} SHARED ${SRCS})
